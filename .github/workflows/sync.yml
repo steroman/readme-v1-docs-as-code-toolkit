@@ -1,0 +1,67 @@
+# .github/workflows/sync-docs.yml
+
+name: Sync Docs to ReadMe.com
+
+on:
+  push:
+    branches:
+      # This workflow runs on pushes to the 'main' branch.
+      # Change this to 'dev' or your project's default branch.
+      - main
+    paths:
+      # Run if any file in 'docs/' changes
+      - 'docs/**'
+      # Run if the sync script itself changes (update path as needed)
+      - '03-sync/**'
+      # Run if dependencies change
+      - 'package.json'
+      - 'package-lock.json'
+  
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+# Minimal permissions needed to check out the repo
+permissions:
+  contents: read
+
+jobs:
+  sync-docs:
+    name: Sync documentation to ReadMe
+    # Use the standard GitHub-hosted runner
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Specify the Node.js version your scripts require
+          node-version: '18'
+          # Use npm's cache to speed up dependency installation
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      # --- Uncomment this section if you use AWS S3 for assets ---
+      # - name: Configure AWS Credentials
+      #   uses: aws-actions/configure-aws-credentials@v4
+      #   with:
+      #     # You must configure an OIDC provider in your AWS account first
+      #     # or use AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY secrets
+      #     role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }} # e.g., arn:aws:iam::123456:role/github-readme-sync
+      #     aws-region: ${{ secrets.AWS_REGION }} # e.g., us-east-1
+      
+      - name: Run ReadMe Sync
+        run: node 03-sync/main.js
+        env:
+          # These secrets MUST be set in your GitHub repository settings
+          # (Settings > Secrets and variables > Actions)
+          README_API_KEY: ${{ secrets.README_API_KEY }}
+          
+          # --- Uncomment these if you use AWS S3 for assets ---
+          # S3_BUCKET_NAME: ${{ secrets.S3_BUCKET_NAME }}
+          # S3_REGION: ${{ secrets.S3_REGION }}
+          # S3_PUBLIC_URL_BASE: ${{ secrets.S3_PUBLIC_URL_BASE }}

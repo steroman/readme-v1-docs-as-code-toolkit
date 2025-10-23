@@ -1,0 +1,67 @@
+# --- START: ReadMe Hierarchy Manager Script ---
+# This logic is added to run *before* lint-staged
+
+# Define the Node script path relative to the repository root
+HIERARCHY_MANAGER="./scripts/hierarchy-manager/main.mjs"
+MANIFEST_FILE="docs/.readme-structure.json"
+
+# --- 1. CHECK FOR DOC CHANGES ---
+# Only run the hierarchy manager if files in "docs/" are staged.
+# This version is silent if no docs are changed.
+if git diff --cached --name-only | grep -E "^docs/";
+then
+    echo "Checking staged files for structural changes..."
+
+    # --- 2. CONDITIONAL MANIFEST REBUILD (with Fallback) ---
+    echo "Running hierarchy manager to check for structural changes and rebuild manifest if needed..."
+    # First, attempt the standard structural check.
+    node "$HIERARCHY_MANAGER" structural-check
+    BUILD_STATUS=$?
+
+    # If the initial check fails (exit code is not 0), it's likely due to an
+    # inconsistent state (like a deleted file).
+    # In this case, we force a rebuild.
+    if [ $BUILD_STATUS -ne 0 ];
+    then
+        echo "⚠️ Initial structural check failed (Code $BUILD_STATUS). This is expected when deleting files."
+        echo "Attempting a forced manifest rebuild..."
+
+        # Run the 'manifest' command which rebuilds without prior validation.
+        node "$HIERARCHY_MANAGER" manifest
+        REBUILD_STATUS=$?
+
+        if [ $REBUILD_STATUS -ne 0 ];
+        then
+            echo "❌ ABORTING COMMIT: The forced manifest rebuild also failed (Error Code $REBUILD_STATUS)."
+            echo "Please run the Hierarchy Manager manually to resolve the error:"
+            echo "  node $HIERARCHY_MANAGER"
+            exit 1
+        fi
+
+        # If the forced rebuild was successful, stage the newly created manifest file.
+        echo "✅ Forced rebuild successful. Staging the updated manifest."
+        git add "$MANIFEST_FILE"
+    fi
+
+    # --- 3. STAGE MODIFIED MD FILES ---
+    echo "Staging modified Markdown files..."
+    # Stage all potentially modified MD files.
+    # The manifest is already staged if it was rebuilt.
+    git add docs/*.md docs/**/*.md
+
+    # --- 4. FINAL VALIDATION ---
+    echo "Running final structural validation..."
+    # This final check ensures the NEW state (after a potential rebuild) is valid before committing.
+    node "$HIERARCHY_MANAGER" validate
+    VALIDATION_STATUS=$?
+
+    if [ $VALIDATION_STATUS -ne 0 ];
+    then
+        echo "❌ ABORTING COMMIT: Final structural validation failed."
+        echo "Please fix the resulting structural errors before committing."
+        exit 1
+    fi
+
+    echo "✅ Documentation structure and manifest are valid."
+fi
+# --- END: ReadMe Hierarchy Manager Script ---
