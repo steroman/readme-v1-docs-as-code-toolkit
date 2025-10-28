@@ -104,7 +104,7 @@ The `02-hierarchy-management` script is an interactive CLI tool for local develo
 
 This tool isn't mandatory to complete your migration, but you'll be using it often after you migrated to maintain your documentation hierarchy safe and sound.
 
-### 4. Automated sync (CI/CD)
+### Step 4. Automated sync (CI/CD)
 
 The `03-sync` script is what you will run in your CI/CD pipeline (e.g., GitHub Actions). It compares your repository's `docs/` folder with your ReadMe project and automatically syncs all changes, including creating, updating, and deleting docs, categories, and images.
 
